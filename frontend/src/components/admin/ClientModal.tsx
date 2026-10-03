@@ -45,7 +45,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
 
   // Vehicles list for creation or editing
   const [vehiculos, setVehiculos] = useState<Array<{
-    idVehiculo?: number;
+    idVehiculo?: string;
     placa: string;
     marca: string;
     modelo: string;

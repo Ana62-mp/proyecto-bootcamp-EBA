@@ -15,7 +15,7 @@ import { Layers, Droplets, Sparkles, CheckCircle2, Clock, User, ArrowRight } fro
 interface StationCardProps {
   numeroEstacion: 1 | 2;
   turno: TurnoCarwash | null;
-  onAdvance: (idTurno: number) => Promise<void>;
+  onAdvance: (idTurno: string) => Promise<void>;
   canAdvance?: boolean;
 }
 
@@ -98,7 +98,7 @@ export const StationCard: React.FC<StationCardProps> = ({
 
   // Occupied State
   const cliente = getClienteById(turno.idCliente);
-  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
   const servicio = getServicioById(turno.idServicio);
   const nombreCliente = cliente
     ? cliente.razonSocial || `${cliente.nombres || ''} ${cliente.apellidos || ''}`.trim()
@@ -120,7 +120,7 @@ export const StationCard: React.FC<StationCardProps> = ({
               <h3 className="text-lg font-black text-[#042544]">
                 Estación {numeroEstacion}
               </h3>
-              <span className="text-xs text-slate-500">Turno #{turno.idTurno}</span>
+              <span className="text-xs text-slate-500">Turno {turno.numeroTurno}</span>
             </div>
           </div>
 

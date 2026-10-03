@@ -25,7 +25,7 @@ export const ColaEsperaPage: React.FC = () => {
   } = useCarWash();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [turnoToCancel, setTurnoToCancel] = useState<number | null>(null);
+  const [turnoToCancel, setTurnoToCancel] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
 
   const isMaquina = currentUser?.rol === 'MAQUINA';
@@ -126,7 +126,7 @@ export const ColaEsperaPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredQueue.map((turno, index) => {
                   const cliente = getClienteById(turno.idCliente);
-                  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+                  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
                   const servicio = getServicioById(turno.idServicio);
                   const nombre = cliente?.razonSocial || `${cliente?.nombres || ''} ${cliente?.apellidos || ''}`.trim();
 

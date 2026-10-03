@@ -9,10 +9,12 @@
  * - Step 5: Final review & turn generation
  * - Step 6: Ticket printable output
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Cliente, ServicioLavado, TipoDocumento, TurnoCarwash, Vehiculo } from '../types';
 import { useCarWash } from '../context/CarWashContext';
 import { ClientesService } from '../services/clientesService';
+import { newIdempotencyKey } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { DocumentStep } from '../components/kiosk/DocumentStep';
 import { ExistingCustomerStep } from '../components/kiosk/ExistingCustomerStep';
 import { NewCustomerForm } from '../components/kiosk/NewCustomerForm';
@@ -31,7 +33,21 @@ type WizardStep =
   | 'SUCCESS';
 
 export const NuevoTurnoPage: React.FC = () => {
-  const { servicios, crearTurno, clientes, refreshData, showToast } = useCarWash();
+  const {
+    servicios,
+    crearTurno,
+    refreshData,
+    showToast,
+    maquinas,
+    maquinaDestinoId,
+    setMaquinaDestinoId
+  } = useCarWash();
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.rol === 'ADMIN';
+
+  // Una Idempotency-Key por emisión: se reutiliza si se reintenta la misma selección,
+  // así un reintento tras un corte devuelve el mismo ticket en vez de crear otro.
+  const emisionKeyRef = useRef<{ firma: string; key: string } | null>(null);
 
   // Wizard state
   const [step, setStep] = useState<WizardStep>('DOCUMENT');
@@ -88,6 +104,7 @@ export const NuevoTurnoPage: React.FC = () => {
     setVehiculoSeleccionado(null);
     setServicioSeleccionado(null);
     setTurnoCreado(null);
+    emisionKeyRef.current = null;
   };
 
   // STEP 2B: Submit new customer form
@@ -147,14 +164,28 @@ export const NuevoTurnoPage: React.FC = () => {
   const handleConfirmTurno = async () => {
     if (!clienteActual || !vehiculoSeleccionado || !servicioSeleccionado) return;
 
+    const firma = [
+      clienteActual.idCliente,
+      vehiculoSeleccionado.idVehiculo,
+      servicioSeleccionado.idServicio,
+      isAdmin ? maquinaDestinoId : ''
+    ].join('|');
+    if (emisionKeyRef.current?.firma !== firma) {
+      emisionKeyRef.current = { firma, key: newIdempotencyKey() };
+    }
+
     setIsSubmittingTurno(true);
     try {
-      const result = await crearTurno({
-        idCliente: clienteActual.idCliente,
-        idVehiculo: vehiculoSeleccionado.idVehiculo,
-        idServicio: servicioSeleccionado.idServicio
-      });
+      const result = await crearTurno(
+        {
+          idCliente: clienteActual.idCliente,
+          idVehiculo: vehiculoSeleccionado.idVehiculo,
+          idServicio: servicioSeleccionado.idServicio
+        },
+        emisionKeyRef.current.key
+      );
 
+      emisionKeyRef.current = null;
       setTurnoCreado(result.turno);
       setStep('SUCCESS');
     } catch (err: unknown) {
@@ -166,6 +197,33 @@ export const NuevoTurnoPage: React.FC = () => {
 
   return (
     <div className="w-full flex-1 flex flex-col justify-center items-center py-4 select-none">
+      {/* Un administrador emite en nombre de un kiosko: debe elegir la máquina destino */}
+      {isAdmin && step !== 'SUCCESS' && (
+        <div className="w-full max-w-xl mx-auto mb-4 p-3 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+          <label htmlFor="maquina-destino" className="font-bold text-slate-700 uppercase">
+            Kiosko destino del ticket
+          </label>
+          {maquinas.length > 0 ? (
+            <select
+              id="maquina-destino"
+              value={maquinaDestinoId ?? ''}
+              onChange={e => setMaquinaDestinoId(e.target.value || null)}
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-300 bg-white font-medium focus:ring-1 focus:ring-[#3BBCFD]"
+            >
+              {maquinas.map(m => (
+                <option key={m.idUsuario} value={m.idUsuario}>
+                  {m.nombreVisible}{m.ubicacion ? ` · ${m.ubicacion}` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-rose-700 font-medium">
+              No hay kioscos activos. Crea o activa uno en Usuarios para emitir tickets.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* STEP 1: Document */}
       {step === 'DOCUMENT' && (
         <DocumentStep

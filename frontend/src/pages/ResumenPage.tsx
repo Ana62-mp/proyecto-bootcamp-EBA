@@ -38,7 +38,7 @@ export const ResumenPage: React.FC = () => {
     getServicioById
   } = useCarWash();
 
-  const [turnoToDeliver, setTurnoToDeliver] = useState<number | null>(null);
+  const [turnoToDeliver, setTurnoToDeliver] = useState<string | null>(null);
   const [turnoToReprint, setTurnoToReprint] = useState<any | null>(null);
   const [isDelivering, setIsDelivering] = useState(false);
 
@@ -213,7 +213,7 @@ export const ResumenPage: React.FC = () => {
               <div className="space-y-2.5">
                 {turnosEnEspera.slice(0, 5).map((turno, idx) => {
                   const cliente = getClienteById(turno.idCliente);
-                  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+                  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
                   const servicio = getServicioById(turno.idServicio);
                   const nombre = cliente?.razonSocial || `${cliente?.nombres || ''} ${cliente?.apellidos || ''}`.trim();
 
@@ -275,7 +275,7 @@ export const ResumenPage: React.FC = () => {
               <div className="space-y-2.5">
                 {turnosListos.map(turno => {
                   const cliente = getClienteById(turno.idCliente);
-                  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+                  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
                   const servicio = getServicioById(turno.idServicio);
                   const nombre = cliente?.razonSocial || `${cliente?.nombres || ''} ${cliente?.apellidos || ''}`.trim();
 
@@ -364,7 +364,7 @@ export const ResumenPage: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setTurnoToReprint(null)}
-          title={`Reimprimir Comprobante · Turno #${turnoToReprint.idTurno}`}
+          title={`Reimprimir Comprobante · Turno ${turnoToReprint.numeroTurno}`}
           description="Reimpresión de ticket sin duplicar turnos."
           maxWidth="md"
         >

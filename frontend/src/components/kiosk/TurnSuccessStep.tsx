@@ -46,7 +46,7 @@ export const TurnSuccessStep: React.FC<TurnSuccessStepProps> = ({
           </span>
           <div className="flex items-center justify-center gap-4 text-xs font-semibold text-[#BFC3CC] border-t border-[#073663] pt-3 mt-3">
             <span>
-              Turno interno: <strong className="text-white font-mono text-sm">#{turno.idTurno}</strong>
+              Turno interno: <strong className="text-white font-mono text-sm">{turno.numeroTurno}</strong>
             </span>
             <span>·</span>
             <span>

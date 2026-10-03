@@ -2,25 +2,24 @@
  * Step 3: Vehicle Registration Form
  * Conforms to Spec Section 8.4
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { TipoVehiculo, Vehiculo } from '../../types';
 import { normalizarYValidarPlaca, formatearPlacaEnTiempoReal } from '../../utils/documentValidators';
 import { useCarWash } from '../../context/CarWashContext';
-import { AntService } from '../../services/antService';
+import { AntService, MENSAJE_FALLO_CONSULTA } from '../../services/antService';
 import { Car, ArrowRight, ArrowLeft, AlertTriangle, ShieldCheck, Loader2, CheckCircle2, Info } from 'lucide-react';
 
 interface VehicleFormProps {
-  idCliente: number;
+  idCliente: string;
   onBack: () => void;
   onSubmit: (vehiculo: Omit<Vehiculo, 'idVehiculo' | 'idCliente' | 'activo'>) => void;
 }
 
 export const VehicleForm: React.FC<VehicleFormProps> = ({
-  idCliente,
   onBack,
   onSubmit
 }) => {
-  const { clientes, turnos } = useCarWash();
+  const { turnos } = useCarWash();
 
   const [placa, setPlaca] = useState('');
   const [marca, setMarca] = useState('');
@@ -30,10 +29,13 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
   const [error, setError] = useState('');
   const [validandoAnt, setValidandoAnt] = useState(false);
   const [resultadoAnt, setResultadoAnt] = useState<'ENCONTRADO' | 'NO_ENCONTRADO' | null>(null);
+  // Cancela la consulta en curso si la placa cambia, para no llenar el formulario con datos de otra placa.
+  const consultaRef = useRef<AbortController | null>(null);
 
   const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
     setResultadoAnt(null);
+    consultaRef.current?.abort();
     // Auto-inserts '-' after 3 letters and strictly limits to letters + hyphen + up to 4 digits
     const formatted = formatearPlacaEnTiempoReal(e.target.value);
     setPlaca(formatted);
@@ -49,9 +51,14 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       return;
     }
 
+    consultaRef.current?.abort();
+    const controller = new AbortController();
+    consultaRef.current = controller;
+
     setValidandoAnt(true);
     try {
-      const datos = await AntService.consultarPorPlaca(validation.cleanedValue);
+      const datos = await AntService.consultarPorPlaca(validation.cleanedValue, controller.signal);
+      if (controller.signal.aborted) return;
       if (datos) {
         setMarca(datos.marca);
         setModelo(datos.modelo);
@@ -60,10 +67,14 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
       } else {
         setResultadoAnt('NO_ENCONTRADO');
       }
-    } catch {
-      setError('No se pudo consultar la ANT en este momento. Llena los datos manualmente.');
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setError(err instanceof Error ? err.message : MENSAJE_FALLO_CONSULTA);
     } finally {
-      setValidandoAnt(false);
+      if (consultaRef.current === controller) {
+        consultaRef.current = null;
+        setValidandoAnt(false);
+      }
     }
   };
 
@@ -79,26 +90,12 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
 
     const placaFinal = validation.cleanedValue;
 
-    // Check if plate belongs to another client
-    const otherClient = clientes.find(
-      c => c.idCliente !== idCliente && c.vehiculos.some(v => v.placa === placaFinal)
-    );
-    if (otherClient) {
-      setError('Esta placa ya se encuentra registrada. Solicita asistencia al personal.');
-      return;
-    }
-
-    // Check if plate has an active turn
+    // Aviso temprano con la cola cargada; el backend vuelve a validar al registrar y al emitir
+    // (placa de otro cliente o vehículo con turno activo).
     const activeStates = ['EN_ESPERA', 'LAVANDO', 'SECANDO_PULIENDO', 'LISTO'];
-    const activeTurn = turnos.find(t => {
-      if (!activeStates.includes(t.estado)) return false;
-      // find vehicle
-      for (const c of clientes) {
-        const v = c.vehiculos.find(veh => veh.idVehiculo === t.idVehiculo);
-        if (v && v.placa === placaFinal) return true;
-      }
-      return false;
-    });
+    const activeTurn = turnos.find(
+      t => activeStates.includes(t.estado) && t.vehiculo.placa === placaFinal
+    );
 
     if (activeTurn) {
       setError('Este vehículo ya tiene un turno activo en el sistema. Debe retirarse o entregarse antes de generar otro.');

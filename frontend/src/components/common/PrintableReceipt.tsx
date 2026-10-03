@@ -21,7 +21,7 @@ export const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
   const { getClienteById, getVehiculoById, getServicioById } = useCarWash();
 
   const cliente = getClienteById(turno.idCliente);
-  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
   const servicio = getServicioById(turno.idServicio);
 
   const handlePrint = () => {
@@ -62,7 +62,7 @@ export const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
           </div>
           <div className="text-xs font-bold uppercase mt-1">COMPROBANTE DE TURNO</div>
           <div className="text-sm font-black text-slate-900 mt-1">
-            TURNO #{turno.idTurno}
+            TURNO {turno.numeroTurno}
           </div>
           <div className="text-[10px] text-slate-600 mt-0.5">
             {formatDateTime(turno.fechaIngreso)}
@@ -137,7 +137,7 @@ export const PrintableReceipt: React.FC<PrintableReceiptProps> = ({
         <div className="pt-2 text-center border-t border-slate-300 flex flex-col items-center">
           <div className="h-7 w-48 bg-repeat-x bg-[linear-gradient(90deg,#000_1px,transparent_1px,#000_3px,transparent_2px,#000_2px,transparent_4px)]"></div>
           <span className="text-[9px] text-slate-500 font-mono mt-0.5">
-            TRN-{turno.idTurno}-{vehiculo?.placa.replace('-', '') || '0000'}
+            {turno.numeroTurno}-{vehiculo?.placa.replace('-', '') || '0000'}
           </span>
         </div>
       </div>

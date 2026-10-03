@@ -10,7 +10,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/common/Logo';
-import { INITIAL_USUARIOS } from '../data/seedData';
 import { LogIn, KeyRound, User, ChevronDown, ChevronUp, AlertCircle, Shield } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -37,8 +36,8 @@ export const LoginPage: React.FC = () => {
     setIsLoading(false);
 
     if (result.success) {
-      // Find logged in user to redirect to role home
-      const match = INITIAL_USUARIOS.find(u => u.usuario.toLowerCase() === usuario.trim().toLowerCase());
+      // Redirect to the role home of the authenticated user
+      const match = result.user;
       if (match?.rol === 'ADMIN') {
         navigate('/resumen');
       } else if (match?.rol === 'MAQUINA') {

@@ -34,17 +34,25 @@ export class ActualizarClienteUseCase {
     const current = await this.clientes.findById(id);
     if (!current) throw AppException.notFound('CLIENTE_NO_ENCONTRADO', 'Cliente no encontrado.');
 
-    const data = normalizarCliente({
-      tipoDocumento: cambios.tipoDocumento ?? current.tipoDocumento,
-      numeroDocumento: cambios.numeroDocumento ?? current.numeroDocumento,
-      nombres: cambios.nombres !== undefined ? cambios.nombres : current.nombres,
-      apellidos: cambios.apellidos !== undefined ? cambios.apellidos : current.apellidos,
-      razonSocial: cambios.razonSocial !== undefined ? cambios.razonSocial : current.razonSocial,
-      nombreContacto:
-        cambios.nombreContacto !== undefined ? cambios.nombreContacto : current.nombreContacto,
-      telefono: cambios.telefono ?? current.telefono,
-      correo: cambios.correo !== undefined ? cambios.correo : current.correo,
-    });
+    const tipoDocumento = cambios.tipoDocumento ?? current.tipoDocumento;
+    const numeroDocumento = cambios.numeroDocumento?.trim() ?? current.numeroDocumento;
+    const documentoCambio =
+      tipoDocumento !== current.tipoDocumento || numeroDocumento !== current.numeroDocumento;
+
+    const data = normalizarCliente(
+      {
+        tipoDocumento,
+        numeroDocumento,
+        nombres: cambios.nombres !== undefined ? cambios.nombres : current.nombres,
+        apellidos: cambios.apellidos !== undefined ? cambios.apellidos : current.apellidos,
+        razonSocial: cambios.razonSocial !== undefined ? cambios.razonSocial : current.razonSocial,
+        nombreContacto:
+          cambios.nombreContacto !== undefined ? cambios.nombreContacto : current.nombreContacto,
+        telefono: cambios.telefono ?? current.telefono,
+        correo: cambios.correo !== undefined ? cambios.correo : current.correo,
+      },
+      documentoCambio,
+    );
 
     if (await this.clientes.existsByDocumento(data.tipoDocumento, data.numeroDocumento, id)) {
       throw documentoDuplicado(data.numeroDocumento);

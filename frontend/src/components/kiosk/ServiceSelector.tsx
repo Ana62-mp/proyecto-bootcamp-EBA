@@ -9,8 +9,8 @@ import { Sparkles, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface ServiceSelectorProps {
   servicios: ServicioLavado[];
-  selectedServicioId: number | null;
-  onSelectServicio: (idServicio: number) => void;
+  selectedServicioId: string | null;
+  onSelectServicio: (idServicio: string) => void;
   onBack: () => void;
   onContinue: () => void;
 }

@@ -1,8 +1,17 @@
 /**
  * CarWash Context & Operational State
- * Manages atomic state for turns, customers, stations, services, and live feedback.
+ * Estado operativo sincronizado con el backend: turnos, servicios y máquinas.
+ * Los turnos se refrescan por REST cada pocos segundos; el despacho FIFO ocurre en el servidor.
  */
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef
+} from 'react';
 import {
   Cliente,
   ServicioLavado,
@@ -11,8 +20,10 @@ import {
   CrearTurnoInput,
   Vehiculo
 } from '../types';
-import { StorageService } from '../services/storage';
 import { TurnosService } from '../services/turnosService';
+import { ServiciosLavadoService } from '../services/serviciosLavadoService';
+import { UsuariosService } from '../services/usuariosService';
+import { newIdempotencyKey } from '../services/api';
 import { useAuth } from './AuthContext';
 
 export interface ToastMessage {
@@ -21,11 +32,15 @@ export interface ToastMessage {
   type: 'info' | 'success' | 'warning' | 'error';
 }
 
+const POLL_INTERVAL_MS = 5000;
+
 interface CarWashContextType {
   turnos: TurnoCarwash[];
-  clientes: Cliente[];
-  usuarios: Usuario[];
   servicios: ServicioLavado[];
+  /** Kioscos activos (solo se cargan para ADMIN, que debe elegir la máquina destino). */
+  maquinas: Usuario[];
+  maquinaDestinoId: string | null;
+  setMaquinaDestinoId: (id: string | null) => void;
   toast: ToastMessage | null;
   clearToast: () => void;
   showToast: (message: string, type?: ToastMessage['type']) => void;
@@ -39,57 +54,40 @@ interface CarWashContextType {
   estacion2Turno: TurnoCarwash | null;
 
   // Actions
-  crearTurno: (input: CrearTurnoInput) => Promise<{ turno: TurnoCarwash; dispatched: boolean }>;
-  avanzarEstado: (idTurno: number) => Promise<void>;
-  entregarTurno: (idTurno: number) => Promise<void>;
-  cancelarTurno: (idTurno: number) => Promise<void>;
+  crearTurno: (
+    input: CrearTurnoInput,
+    idempotencyKey?: string
+  ) => Promise<{ turno: TurnoCarwash; dispatched: boolean }>;
+  avanzarEstado: (idTurno: string) => Promise<void>;
+  entregarTurno: (idTurno: string) => Promise<void>;
+  cancelarTurno: (idTurno: string) => Promise<void>;
   asignarTurnosPendientes: () => Promise<void>;
   refreshData: () => void;
-  resetDemostracion: () => void;
 
-  // Lookup helpers
-  getClienteById: (idCliente: number) => Cliente | undefined;
-  getVehiculoById: (idCliente: number, idVehiculo: number) => Vehiculo | undefined;
-  getVehiculoByOnlyId: (idVehiculo: number) => Vehiculo | undefined;
-  getServicioById: (idServicio: number) => ServicioLavado | undefined;
+  // Lookup helpers (a partir de la copia del comprobante guardada en cada turno)
+  getClienteById: (idCliente: string) => Cliente | undefined;
+  getVehiculoById: (idCliente: string, idVehiculo: string) => Vehiculo | undefined;
+  getVehiculoByOnlyId: (idVehiculo: string) => Vehiculo | undefined;
+  getServicioById: (idServicio: string) => ServicioLavado | undefined;
 }
 
 const CarWashContext = createContext<CarWashContextType | undefined>(undefined);
 
+const errorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error ? err.message : fallback;
+
 export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   const [turnos, setTurnos] = useState<TurnoCarwash[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  // Comprobantes emitidos en esta sesión: aportan los datos del cliente que la vista pública no trae.
+  const [emitidos, setEmitidos] = useState<TurnoCarwash[]>([]);
   const [servicios, setServicios] = useState<ServicioLavado[]>([]);
+  const [maquinas, setMaquinas] = useState<Usuario[]>([]);
+  const [maquinaDestinoId, setMaquinaDestinoId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const loadingRef = useRef(false);
 
-  const loadData = useCallback(() => {
-    const loadedTurnos = StorageService.getTurnos();
-    const loadedClientes = StorageService.getClientes();
-    const loadedUsuarios = StorageService.getUsuarios();
-    const loadedServicios = StorageService.getServicios();
-
-    setTurnos(loadedTurnos);
-    setClientes(loadedClientes);
-    setUsuarios(loadedUsuarios);
-    setServicios(loadedServicios);
-  }, []);
-
-  useEffect(() => {
-    loadData();
-
-    // Subscribe to internal event bus for instant multi-view updates
-    const unsubscribe = TurnosService.subscribe((evento, _payload) => {
-      // Reload state on turn mutations
-      const freshTurnos = StorageService.getTurnos();
-      setTurnos(freshTurnos);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [loadData]);
+  const rol = currentUser?.rol ?? null;
 
   const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info') => {
     const id = Date.now().toString();
@@ -103,36 +101,129 @@ export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setToast(null);
   }, []);
 
-  // Helpers for querying entities
-  const getClienteById = useCallback((idCliente: number) => {
-    return clientes.find(c => c.idCliente === idCliente);
-  }, [clientes]);
-
-  const getVehiculoById = useCallback((idCliente: number, idVehiculo: number) => {
-    const c = clientes.find(item => item.idCliente === idCliente);
-    return c?.vehiculos.find(v => v.idVehiculo === idVehiculo);
-  }, [clientes]);
-
-  const getVehiculoByOnlyId = useCallback((idVehiculo: number) => {
-    for (const c of clientes) {
-      const found = c.vehiculos.find(v => v.idVehiculo === idVehiculo);
-      if (found) return found;
+  const loadTurnos = useCallback(async () => {
+    if (!rol || loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const [activos, historial] = await Promise.all([
+        TurnosService.listarActivos(rol),
+        rol === 'ADMIN' ? TurnosService.listarHistorial() : Promise.resolve([])
+      ]);
+      setTurnos([...activos, ...historial]);
+    } catch (err) {
+      console.error('No se pudieron cargar los turnos', err);
+    } finally {
+      loadingRef.current = false;
     }
-    return undefined;
-  }, [clientes]);
+  }, [rol]);
 
-  const getServicioById = useCallback((idServicio: number) => {
-    return servicios.find(s => s.idServicio === idServicio);
-  }, [servicios]);
+  const loadCatalogos = useCallback(async () => {
+    if (!rol) return;
+    try {
+      setServicios(await ServiciosLavadoService.listar(rol === 'ADMIN'));
+      if (rol === 'ADMIN') {
+        const lista = await UsuariosService.listarMaquinasActivas();
+        setMaquinas(lista);
+        setMaquinaDestinoId(prev =>
+          prev && lista.some(m => m.idUsuario === prev) ? prev : lista[0]?.idUsuario ?? null
+        );
+      }
+    } catch (err) {
+      console.error('No se pudieron cargar los catálogos', err);
+    }
+  }, [rol]);
 
-  // FIFO and Station state computations
+  useEffect(() => {
+    if (!rol) {
+      setTurnos([]);
+      setEmitidos([]);
+      setServicios([]);
+      setMaquinas([]);
+      return;
+    }
+    loadCatalogos();
+    loadTurnos();
+    const timer = setInterval(loadTurnos, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [rol, loadCatalogos, loadTurnos]);
+
+  // ---------- Lookups ----------
+
+  const snapshots = useMemo(() => [...emitidos, ...turnos], [emitidos, turnos]);
+
+  const getClienteById = useCallback(
+    (idCliente: string): Cliente | undefined => {
+      const t = snapshots.find(x => x.idCliente === idCliente && x.cliente);
+      if (!t || !t.cliente) return undefined;
+      return {
+        idCliente,
+        tipoDocumento: t.cliente.tipoDocumento,
+        numeroDocumento: t.cliente.numeroDocumento,
+        nombres: t.cliente.nombre,
+        apellidos: null,
+        razonSocial: null,
+        nombreContacto: null,
+        telefono: '',
+        correo: null,
+        activo: true,
+        vehiculos: [],
+        fechaRegistro: t.fechaIngreso,
+        fechaActualizacion: t.fechaIngreso
+      };
+    },
+    [snapshots]
+  );
+
+  const getVehiculoByOnlyId = useCallback(
+    (idVehiculo: string): Vehiculo | undefined => {
+      const t = snapshots.find(x => x.idVehiculo === idVehiculo);
+      if (!t) return undefined;
+      return {
+        idVehiculo,
+        idCliente: t.idCliente,
+        placa: t.vehiculo.placa,
+        marca: t.vehiculo.marca,
+        modelo: t.vehiculo.modelo,
+        color: t.vehiculo.color,
+        tipoVehiculo: t.vehiculo.tipoVehiculo ?? 'OTRO',
+        activo: true
+      };
+    },
+    [snapshots]
+  );
+
+  const getVehiculoById = useCallback(
+    (_idCliente: string, idVehiculo: string) => getVehiculoByOnlyId(idVehiculo),
+    [getVehiculoByOnlyId]
+  );
+
+  const getServicioById = useCallback(
+    (idServicio: string): ServicioLavado | undefined => {
+      const servicio = servicios.find(s => s.idServicio === idServicio);
+      if (servicio) return servicio;
+      const t = snapshots.find(x => x.idServicio === idServicio);
+      if (!t) return undefined;
+      return {
+        idServicio,
+        codigo: 'LAVADO_SIMPLE',
+        nombre: t.servicioNombre,
+        descripcion: '',
+        precio: t.precioServicio,
+        activo: true
+      };
+    },
+    [servicios, snapshots]
+  );
+
+  // ---------- FIFO and Station state computations ----------
+
   const turnosEnEspera = useMemo(() => {
     return turnos
       .filter(t => t.estado === 'EN_ESPERA')
       .sort((a, b) => {
         const timeDiff = new Date(a.fechaIngreso).getTime() - new Date(b.fechaIngreso).getTime();
         if (timeDiff !== 0) return timeDiff;
-        return a.idTurno - b.idTurno;
+        return a.numeroTurno.localeCompare(b.numeroTurno);
       });
   }, [turnos]);
 
@@ -146,7 +237,7 @@ export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .sort((a, b) => {
         const tA = a.fechaFinalizacion ? new Date(a.fechaFinalizacion).getTime() : 0;
         const tB = b.fechaFinalizacion ? new Date(b.fechaFinalizacion).getTime() : 0;
-        return tB - tA; // Most recently completed first
+        return tB - tA;
       });
   }, [turnos]);
 
@@ -161,66 +252,67 @@ export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [turnos]);
 
   const estacion1Turno = useMemo(() => {
-    return turnos.find(
-      t => t.numeroEstacion === 1 && (t.estado === 'LAVANDO' || t.estado === 'SECANDO_PULIENDO')
-    ) || null;
+    return (
+      turnos.find(
+        t => t.numeroEstacion === 1 && (t.estado === 'LAVANDO' || t.estado === 'SECANDO_PULIENDO')
+      ) || null
+    );
   }, [turnos]);
 
   const estacion2Turno = useMemo(() => {
-    return turnos.find(
-      t => t.numeroEstacion === 2 && (t.estado === 'LAVANDO' || t.estado === 'SECANDO_PULIENDO')
-    ) || null;
+    return (
+      turnos.find(
+        t => t.numeroEstacion === 2 && (t.estado === 'LAVANDO' || t.estado === 'SECANDO_PULIENDO')
+      ) || null
+    );
   }, [turnos]);
 
-  // Operational Actions
-  const crearTurno = async (input: CrearTurnoInput) => {
+  // ---------- Operational Actions ----------
+
+  const placaDe = (idTurno: string) =>
+    turnos.find(t => t.idTurno === idTurno)?.vehiculo.placa ?? 'del vehículo';
+
+  const crearTurno = async (input: CrearTurnoInput, idempotencyKey = newIdempotencyKey()) => {
     try {
-      const result = await TurnosService.crearTurno({
-        ...input,
-        idUsuarioCreador: currentUser?.idUsuario
-      });
-      loadData();
+      const machineId = rol === 'ADMIN' ? input.machineId ?? maquinaDestinoId ?? undefined : undefined;
+      if (rol === 'ADMIN' && !machineId) {
+        throw new Error('Selecciona el kiosko destino del ticket.');
+      }
+      const result = await TurnosService.emitirTicket({ ...input, machineId }, idempotencyKey);
+      setEmitidos(prev => [result.turno, ...prev.filter(t => t.idTurno !== result.turno.idTurno)].slice(0, 20));
+      loadTurnos();
 
-      const vehiculo = getVehiculoByOnlyId(result.turno.idVehiculo);
-      const placaText = vehiculo?.placa || 'del vehículo';
-
-      if (result.dispatched && result.turno.numeroEstacion) {
+      const { turno } = result;
+      if (result.dispatched && turno.numeroEstacion) {
         showToast(
-          `¡Turno #${result.turno.idTurno} creado! Vehículo ${placaText} asignado directamente a Estación ${result.turno.numeroEstacion}.`,
+          `¡Turno ${turno.numeroTurno} creado! Vehículo ${turno.vehiculo.placa} asignado directamente a Estación ${turno.numeroEstacion}.`,
           'success'
         );
       } else {
         showToast(
-          `Turno #${result.turno.idTurno} creado con éxito para ${placaText}. Ha ingresado a la cola de espera FIFO.`,
+          `Turno ${turno.numeroTurno} creado con éxito para ${turno.vehiculo.placa}. Ha ingresado a la cola de espera FIFO.`,
           'info'
         );
       }
-
-      return result;
+      return { turno, dispatched: result.dispatched };
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al crear turno';
-      showToast(msg, 'error');
+      showToast(errorMessage(err, 'Error al crear turno'), 'error');
       throw err;
     }
   };
 
-  const avanzarEstado = async (idTurno: number) => {
+  const avanzarEstado = async (idTurno: string) => {
     try {
-      const usuarioId = currentUser?.idUsuario || 1;
-      const target = turnos.find(t => t.idTurno === idTurno);
-      const vehiculo = target ? getVehiculoByOnlyId(target.idVehiculo) : null;
-      const placaText = vehiculo?.placa || `Turno #${idTurno}`;
-
-      const res = await TurnosService.avanzarEstado(idTurno, usuarioId);
-      loadData();
+      const placaText = placaDe(idTurno);
+      const res = await TurnosService.avanzarEstado(idTurno);
+      await loadTurnos();
 
       if (res.turno.estado === 'SECANDO_PULIENDO') {
         showToast(`Vehículo ${placaText} pasó a etapa de secado y pulido.`, 'info');
       } else if (res.turno.estado === 'LISTO') {
         if (res.siguienteAsignado) {
-          const nextVehiculo = getVehiculoByOnlyId(res.siguienteAsignado.idVehiculo);
           showToast(
-            `Vehículo ${placaText} marcado como listo. Siguiente vehículo asignado: ${nextVehiculo?.placa || 'Turno #' + res.siguienteAsignado.idTurno}.`,
+            `Vehículo ${placaText} marcado como listo. Siguiente vehículo asignado: ${res.siguienteAsignado.vehiculo.placa}.`,
             'success'
           );
         } else {
@@ -228,75 +320,57 @@ export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al avanzar estado';
-      showToast(msg, 'error');
+      showToast(errorMessage(err, 'Error al avanzar estado'), 'error');
       throw err;
     }
   };
 
-  const entregarTurno = async (idTurno: number) => {
+  const entregarTurno = async (idTurno: string) => {
     try {
-      const usuarioId = currentUser?.idUsuario || 1;
-      const target = turnos.find(t => t.idTurno === idTurno);
-      const vehiculo = target ? getVehiculoByOnlyId(target.idVehiculo) : null;
-      const placaText = vehiculo?.placa || `Turno #${idTurno}`;
-
-      await TurnosService.entregarTurno(idTurno, usuarioId);
-      loadData();
+      const placaText = placaDe(idTurno);
+      await TurnosService.entregarTurno(idTurno);
+      await loadTurnos();
       showToast(`Vehículo ${placaText} entregado con éxito al cliente.`, 'success');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al entregar turno';
-      showToast(msg, 'error');
+      showToast(errorMessage(err, 'Error al entregar turno'), 'error');
       throw err;
     }
   };
 
-  const cancelarTurno = async (idTurno: number) => {
+  const cancelarTurno = async (idTurno: string) => {
     try {
-      const usuarioId = currentUser?.idUsuario || 1;
-      const target = turnos.find(t => t.idTurno === idTurno);
-      const vehiculo = target ? getVehiculoByOnlyId(target.idVehiculo) : null;
-      const placaText = vehiculo?.placa || `Turno #${idTurno}`;
-
-      await TurnosService.cancelarTurno(idTurno, usuarioId);
-      loadData();
+      const placaText = placaDe(idTurno);
+      await TurnosService.cancelarTurno(idTurno);
+      await loadTurnos();
       showToast(`Turno de ${placaText} cancelado correctamente. Cola reasignada.`, 'warning');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al cancelar turno';
-      showToast(msg, 'error');
+      showToast(errorMessage(err, 'Error al cancelar turno'), 'error');
       throw err;
     }
   };
 
   const asignarTurnosPendientes = async () => {
     try {
-      await TurnosService.asignarTurnosPendientes(currentUser?.idUsuario || null);
-      loadData();
+      await TurnosService.asignarTurnosPendientes();
+      await loadTurnos();
     } catch (err: unknown) {
       console.error('Error al despachar turnos', err);
     }
   };
 
   const refreshData = () => {
-    loadData();
-  };
-
-  const resetDemostracion = () => {
-    const data = StorageService.resetAllData();
-    setTurnos(data.turnos);
-    setClientes(data.clientes);
-    setUsuarios(data.usuarios);
-    setServicios(data.servicios);
-    showToast('Datos de demostración restablecidos con éxito.', 'info');
+    loadTurnos();
+    loadCatalogos();
   };
 
   return (
     <CarWashContext.Provider
       value={{
         turnos,
-        clientes,
-        usuarios,
         servicios,
+        maquinas,
+        maquinaDestinoId,
+        setMaquinaDestinoId,
         toast,
         clearToast,
         showToast,
@@ -312,7 +386,6 @@ export const CarWashProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cancelarTurno,
         asignarTurnosPendientes,
         refreshData,
-        resetDemostracion,
         getClienteById,
         getVehiculoById,
         getVehiculoByOnlyId,

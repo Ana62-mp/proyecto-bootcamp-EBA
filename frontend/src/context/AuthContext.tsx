@@ -1,17 +1,21 @@
 /**
  * Authentication Context for Sistema de Turnos Car Wash
- * Handles login, session persistence, role guards, and deterministic demo credentials.
+ * Autenticación contra el backend: access token en memoria y refresh token en cookie httpOnly.
+ * Al recargar la página la sesión se restaura con POST /api/auth/refresh.
  */
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario } from '../types';
-import { StorageService } from '../services/storage';
+import { ApiError, apiRequest, refreshSession, session, SessionPayload } from '../services/api';
+import { mapUsuario } from '../services/mappers';
 
 interface AuthContextType {
   currentUser: Usuario | null;
   isLoading: boolean;
-  login: (usuario: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    usuario: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string; user?: Usuario }>;
   logout: () => void;
-  setDemoUser: (usuarioId: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,67 +25,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const saved = StorageService.getCurrentUser();
-    if (saved) {
-      // Re-verify that user is still active in storage
-      const allUsers = StorageService.getUsuarios();
-      const match = allUsers.find(u => u.idUsuario === saved.idUsuario && u.activo);
-      if (match) {
-        setCurrentUser(match);
-      } else {
-        StorageService.saveCurrentUser(null);
-      }
-    }
-    setIsLoading(false);
+    // Si la sesión no se puede renovar (expirada o usuario desactivado), volver al login.
+    session.onExpired(() => setCurrentUser(null));
+
+    let cancelled = false;
+    refreshSession()
+      .then(restored => {
+        if (!cancelled && restored) setCurrentUser(mapUsuario(restored.user));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      session.onExpired(null);
+    };
   }, []);
 
-  const login = async (usuario: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const allUsers = StorageService.getUsuarios();
-    const cleanUser = usuario.trim().toLowerCase();
-    const match = allUsers.find(u => u.usuario.toLowerCase() === cleanUser);
-
-    if (!match) {
-      return { success: false, error: 'Usuario no encontrado en el sistema.' };
+  const login = useCallback(async (usuario: string, password: string) => {
+    try {
+      const { data } = await apiRequest<{ data: SessionPayload }>('/auth/login', {
+        method: 'POST',
+        auth: false,
+        body: { usuario: usuario.trim().toLowerCase(), password }
+      });
+      session.setToken(data.accessToken);
+      const user = mapUsuario(data.user);
+      setCurrentUser(user);
+      return { success: true, user };
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'No se pudo iniciar sesión. Intenta nuevamente.';
+      return { success: false, error: message };
     }
+  }, []);
 
-    if (!match.activo) {
-      return { success: false, error: 'Esta cuenta se encuentra desactivada. Contacte al administrador.' };
-    }
-
-    // Verify deterministic password
-    if (match.passwordHash && match.passwordHash !== password) {
-      return { success: false, error: 'Contraseña incorrecta. Verifique sus credenciales.' };
-    }
-
-    setCurrentUser(match);
-    StorageService.saveCurrentUser(match);
-    return { success: true };
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    session.setToken(null);
     setCurrentUser(null);
-    StorageService.saveCurrentUser(null);
-  };
-
-  const setDemoUser = (usuarioId: number) => {
-    const allUsers = StorageService.getUsuarios();
-    const match = allUsers.find(u => u.idUsuario === usuarioId);
-    if (match && match.activo) {
-      setCurrentUser(match);
-      StorageService.saveCurrentUser(match);
-    }
-  };
+    apiRequest('/auth/logout', { method: 'POST', auth: false }).catch(() => undefined);
+  }, []);
 
   return (
-    <AuthContext.Provider
-      value={{
-        currentUser,
-        isLoading,
-        login,
-        logout,
-        setDemoUser
-      }}
-    >
+    <AuthContext.Provider value={{ currentUser, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

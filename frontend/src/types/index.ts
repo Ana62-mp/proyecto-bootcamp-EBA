@@ -22,7 +22,7 @@ export type TipoLavado =
   | 'PARAFINADO';
 
 export interface Usuario {
-  idUsuario: number;
+  idUsuario: string;
   usuario: string;
   nombreVisible: string;
   rol: Rol;
@@ -30,13 +30,11 @@ export interface Usuario {
   codigo?: string;
   ubicacion?: string;
   estacionPreferida?: 1 | 2 | null;
-  // Deterministic mock password (only used in simulated auth)
-  passwordHash?: string;
 }
 
 export interface Vehiculo {
-  idVehiculo: number;
-  idCliente: number;
+  idVehiculo: string;
+  idCliente: string;
   placa: string;
   marca: string;
   modelo: string;
@@ -46,7 +44,7 @@ export interface Vehiculo {
 }
 
 export interface Cliente {
-  idCliente: number;
+  idCliente: string;
   tipoDocumento: TipoDocumento;
   numeroDocumento: string;
   nombres: string | null;
@@ -62,7 +60,7 @@ export interface Cliente {
 }
 
 export interface ServicioLavado {
-  idServicio: number;
+  idServicio: string;
   codigo: TipoLavado;
   nombre: string;
   descripcion: string;
@@ -73,23 +71,44 @@ export interface ServicioLavado {
 export interface HistorialEstado {
   estado: EstadoTurno;
   fecha: string;
-  idUsuario: number | null;
+  idUsuario: string | null;
 }
 
 export interface TurnoCarwash {
-  idTurno: number;
-  idCliente: number;
-  idVehiculo: number;
-  idServicio: number;
+  idTurno: string;
+  idCliente: string;
+  idVehiculo: string;
+  idServicio: string;
   precioServicio: number;
   fechaIngreso: string;
   estado: EstadoTurno;
   numeroEstacion: 1 | 2 | null;
-  idUsuarioAsignado: number | null;
+  idUsuarioAsignado: string | null;
   fechaInicioLavado: string | null;
   fechaFinalizacion: string | null;
   fechaEntrega: string | null;
   historialEstados: HistorialEstado[];
+  /** Número legible del turno (CW-YYYYMMDD-NNNN). */
+  numeroTurno: string;
+  /** Copia del comprobante; cliente es null en la vista pública (kiosko y monitor). */
+  cliente: TurnoClienteSnapshot | null;
+  vehiculo: TurnoVehiculoSnapshot;
+  servicioNombre: string;
+  nombreLavador: string | null;
+}
+
+export interface TurnoClienteSnapshot {
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  numeroDocumento: string;
+}
+
+export interface TurnoVehiculoSnapshot {
+  placa: string;
+  marca: string;
+  modelo: string;
+  color: string;
+  tipoVehiculo: TipoVehiculo | null;
 }
 
 export interface PaginatedResult<T> {
@@ -101,10 +120,11 @@ export interface PaginatedResult<T> {
 }
 
 export interface CrearTurnoInput {
-  idCliente: number;
-  idVehiculo: number;
-  idServicio: number;
-  idUsuarioCreador?: number;
+  idCliente: string;
+  idVehiculo: string;
+  idServicio: string;
+  /** Solo ADMIN: máquina (kiosko) destino del ticket. */
+  machineId?: string;
 }
 
 export type EventoTurno =

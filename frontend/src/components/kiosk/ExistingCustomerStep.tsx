@@ -9,8 +9,8 @@ import { UserCheck, Car, Plus, ArrowRight, RotateCcw, Check } from 'lucide-react
 
 interface ExistingCustomerStepProps {
   cliente: Cliente;
-  selectedVehiculoId: number | null;
-  onSelectVehiculo: (idVehiculo: number) => void;
+  selectedVehiculoId: string | null;
+  onSelectVehiculo: (idVehiculo: string) => void;
   onAddNewVehicle: () => void;
   onNotMe: () => void;
   onContinue: () => void;

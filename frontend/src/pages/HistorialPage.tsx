@@ -22,7 +22,7 @@ export const HistorialPage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<EstadoTurno | 'TODOS'>('TODOS');
-  const [filterServicio, setFilterServicio] = useState<number | 'TODOS'>('TODOS');
+  const [filterServicio, setFilterServicio] = useState<string | 'TODOS'>('TODOS');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
@@ -32,7 +32,7 @@ export const HistorialPage: React.FC = () => {
   const filteredHistory = useMemo(() => {
     return turnosHistorial.filter(t => {
       const cliente = getClienteById(t.idCliente);
-      const vehiculo = cliente ? getVehiculoById(t.idCliente, t.idVehiculo) : undefined;
+      const vehiculo = getVehiculoById(t.idCliente, t.idVehiculo);
 
       // Status filter
       if (filterEstado !== 'TODOS' && t.estado !== filterEstado) return false;
@@ -125,7 +125,7 @@ export const HistorialPage: React.FC = () => {
             </label>
             <select
               value={filterServicio}
-              onChange={e => setFilterServicio(e.target.value === 'TODOS' ? 'TODOS' : Number(e.target.value))}
+              onChange={e => setFilterServicio(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-medium focus:ring-1 focus:ring-[#3BBCFD]"
             >
               <option value="TODOS">Todos los servicios</option>
@@ -200,14 +200,14 @@ export const HistorialPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {filteredHistory.map(turno => {
                   const cliente = getClienteById(turno.idCliente);
-                  const vehiculo = cliente ? getVehiculoById(turno.idCliente, turno.idVehiculo) : undefined;
+                  const vehiculo = getVehiculoById(turno.idCliente, turno.idVehiculo);
                   const servicio = getServicioById(turno.idServicio);
                   const nombre = cliente?.razonSocial || `${cliente?.nombres || ''} ${cliente?.apellidos || ''}`.trim();
 
                   return (
                     <tr key={turno.idTurno} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                        #{turno.idTurno}
+                        {turno.numeroTurno}
                       </td>
                       <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
                         {formatDateTime(turno.fechaIngreso)}
@@ -269,7 +269,7 @@ export const HistorialPage: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setInspectedTurno(null)}
-          title={`Detalle de Turno #${inspectedTurno.idTurno}`}
+          title={`Detalle de Turno ${inspectedTurno.numeroTurno}`}
           description={`Generado el ${formatDateTime(inspectedTurno.fechaIngreso)}`}
           maxWidth="md"
         >
@@ -336,7 +336,7 @@ export const HistorialPage: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setTurnoToPrint(null)}
-          title={`Reimpresión de Comprobante · Turno #${turnoToPrint.idTurno}`}
+          title={`Reimpresión de Comprobante · Turno ${turnoToPrint.numeroTurno}`}
           description="Ticket térmico 80mm."
           maxWidth="md"
         >

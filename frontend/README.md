@@ -2,19 +2,33 @@
 
 Sistema web integral y responsive de gestión de turnos inmediatos para lavados de autos, desarrollado en **React 19 + TypeScript + Vite + Tailwind CSS**.
 
+## Ejecución con el backend
+
+Los datos se guardan en PostgreSQL a través del backend de [`../backend`](../backend/README.md).
+No hay persistencia en `localStorage`.
+
+1. Levanta el backend en el puerto 3001: `cd ../backend` y luego `npm run start:dev`.
+2. Levanta el frontend: `npm run dev` (puerto 3000).
+
+En desarrollo, Vite reenvía `/api` y `/socket.io` a `http://localhost:3001` (ver `vite.config.ts`).
+Así el navegador trabaja en un solo origen y la cookie de sesión funciona sin configurar CORS.
+Para otro backend, define `BACKEND_URL` al iniciar Vite. Para un build servido desde otro
+dominio, define `VITE_API_URL`.
+
 ## Arquitectura y Estructura
 
-- **`src/types/`**: Modelos de datos de dominio (`TurnoCarwash`, `Cliente`, `Vehiculo`, `Usuario`, `ServicioLavado`).
+- **`src/types/`**: Modelos de datos de dominio (`TurnoCarwash`, `Cliente`, `Vehiculo`, `Usuario`, `ServicioLavado`). Los IDs son UUID del backend.
 - **`src/services/`**:
-  - `storage.ts`: Capa de persistencia aislada en `localStorage` (sin acceso directo desde componentes).
-  - `turnAssignmentService.ts`: Despachador central FIFO que asigna automáticamente vehículos a Estación 1 y Estación 2.
-  - `turnosService.ts`: Máquina de estados (`EN_ESPERA` → `LAVANDO` → `SECANDO_PULIENDO` → `LISTO` → `ENTREGADO`).
-  - `clientesService.ts`: CRUD, búsqueda con debounce, paginación y validaciones.
-  - `usuariosService.ts`: Regla de administrador único y gestión de terminales y lavadores.
+  - `api.ts`: Cliente HTTP. Guarda el access token solo en memoria y renueva la sesión con la cookie de refresh.
+  - `mappers.ts`: Conversión entre los DTOs del backend y los tipos del frontend.
+  - `turnosService.ts`: Emisión de tickets (con `Idempotency-Key`) y operación de turnos. El despacho FIFO a las estaciones lo hace el backend.
+  - `clientesService.ts`: Búsqueda por documento, CRUD paginado y registro de vehículos.
+  - `usuariosService.ts`: Gestión de terminales y lavadores (el backend aplica la regla de administrador único).
   - `serviciosLavadoService.ts`: Catálogo de servicios y precios en dólares (USD).
+  - `antService.ts`: Botón «Validar» de la placa (`GET /api/vehicles/lookup`).
 - **`src/context/`**:
-  - `AuthContext.tsx`: Gestión de sesión, roles y accesos rápidos de prueba.
-  - `CarWashContext.tsx`: Estado reactivo centralizado con notificaciones toast y propagación de eventos.
+  - `AuthContext.tsx`: Login contra la API; la sesión se restaura al recargar la página.
+  - `CarWashContext.tsx`: Turnos, servicios y kioscos sincronizados con el backend (se refrescan cada 5 s), con notificaciones toast.
 - **`src/utils/`**:
   - `documentValidators.ts`: Algoritmo de validación de Cédula ecuatoriana (módulo 10), Pasaporte internacional y RUC (13 dígitos terminado en 001).
   - `formatters.ts`: Formato de moneda `Intl.NumberFormat('es-EC')`, fechas y badges de estado.

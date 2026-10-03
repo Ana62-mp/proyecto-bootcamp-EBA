@@ -1,22 +1,20 @@
 /**
- * ServiciosLavadoService
- * Manages car wash service offerings and prices
+ * ServiciosLavadoService: catálogo de servicios y precios desde el backend.
  */
 import { ServicioLavado } from '../types';
-import { StorageService } from './storage';
+import { apiRequest } from './api';
+import { mapServicio, ServicioDto } from './mappers';
 
 export const ServiciosLavadoService = {
-  async listar(): Promise<ServicioLavado[]> {
-    return StorageService.getServicios();
+  /** El backend solo incluye inactivos si el usuario es ADMIN. */
+  async listar(incluirInactivos = false): Promise<ServicioLavado[]> {
+    const { data } = await apiRequest<{ data: ServicioDto[] }>('/servicios', {
+      query: { incluirInactivos }
+    });
+    return data.map(mapServicio);
   },
 
   async listarActivos(): Promise<ServicioLavado[]> {
-    const list = StorageService.getServicios();
-    return list.filter(s => s.activo);
-  },
-
-  async obtenerPorId(idServicio: number): Promise<ServicioLavado | null> {
-    const list = StorageService.getServicios();
-    return list.find(s => s.idServicio === idServicio) || null;
+    return (await this.listar(false)).filter(s => s.activo);
   }
 };

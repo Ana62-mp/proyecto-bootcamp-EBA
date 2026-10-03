@@ -22,11 +22,14 @@ const clean = (value: string | null | undefined): string | null => value?.trim()
 /**
  * Valida y normaliza los datos de un cliente.
  * RUC exige razón social; cédula y pasaporte exigen nombres y apellidos.
+ * Con `validarDoc = false` (edición sin cambio de documento) el documento se conserva tal cual.
  */
-export function normalizarCliente(input: ClienteInput): ClienteData {
+export function normalizarCliente(input: ClienteInput, validarDoc = true): ClienteData {
   const details: ErrorDetail[] = [];
 
-  const documento = validarDocumento(input.tipoDocumento, input.numeroDocumento);
+  const documento = validarDoc
+    ? validarDocumento(input.tipoDocumento, input.numeroDocumento)
+    : { isValid: true, cleanedValue: input.numeroDocumento };
   if (!documento.isValid)
     details.push({ field: 'numeroDocumento', message: documento.errorMessage! });
 

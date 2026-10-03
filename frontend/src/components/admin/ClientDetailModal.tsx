@@ -179,7 +179,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         return (
                           <tr key={turno.idTurno} className="hover:bg-slate-50/80">
                             <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                              #{turno.idTurno}
+                              {turno.numeroTurno}
                             </td>
                             <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                               {formatDateTime(turno.fechaIngreso)}
@@ -235,7 +235,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         <Modal
           isOpen={true}
           onClose={() => setSelectedTurnoToPrint(null)}
-          title={`Reimpresión de Comprobante - Turno #${selectedTurnoToPrint.idTurno}`}
+          title={`Reimpresión de Comprobante - Turno ${selectedTurnoToPrint.numeroTurno}`}
           description="Reimpresión administrativa sin duplicar turnos."
           maxWidth="md"
         >

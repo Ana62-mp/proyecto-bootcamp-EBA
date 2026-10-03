@@ -4,6 +4,7 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:3001';
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -12,6 +13,11 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Backend NestJS (carpeta ../backend). Mismo origen para la cookie httpOnly del refresh token.
+      proxy: {
+        '/api': { target: backendUrl, changeOrigin: false },
+        '/socket.io': { target: backendUrl, ws: true, changeOrigin: false },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

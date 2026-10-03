@@ -1,22 +1,20 @@
 /**
  * TopBar Component
- * Displays real-time operational counters, public monitor launcher, demo reset button, and profile badge.
+ * Displays operational counters (synced with the backend), public monitor launcher, refresh button and profile badge.
  */
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCarWash } from '../../context/CarWashContext';
 import {
   Menu,
   Tv,
-  RotateCcw,
+  RefreshCw,
   Clock,
   Droplets,
   CheckCircle2,
-  AlertTriangle,
   User
 } from 'lucide-react';
-import { Modal } from '../common/Modal';
 
 interface TopBarProps {
   onOpenMobileMenu?: () => void;
@@ -29,22 +27,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
     turnosEnProceso,
     turnosListos,
     turnos,
-    resetDemostracion
+    refreshData
   } = useCarWash();
-  const [showResetModal, setShowResetModal] = useState(false);
-
-  const isAdmin = currentUser?.rol === 'ADMIN';
 
   // Counters
   const countEspera = turnosEnEspera.length;
   const countProceso = turnosEnProceso.length;
   const countListos = turnosListos.length;
   const countTotal = turnos.length;
-
-  const handleConfirmReset = () => {
-    resetDemostracion();
-    setShowResetModal(false);
-  };
 
   return (
     <>
@@ -101,18 +91,16 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             <span className="hidden sm:inline">Pantalla pública</span>
           </Link>
 
-          {/* Reset Demo Data (Admin Only per spec Section 3.1 & 21) */}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setShowResetModal(true)}
-              title="Restablecer datos de demostración"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Restablecer demo</span>
-            </button>
-          )}
+          {/* Recargar datos desde el servidor */}
+          <button
+            type="button"
+            onClick={refreshData}
+            title="Actualizar datos desde el servidor"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-sky-700 hover:bg-sky-50 hover:border-sky-200 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Actualizar</span>
+          </button>
 
           {/* User Badge */}
           <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-200">
@@ -131,40 +119,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
         </div>
       </header>
 
-      {/* Confirmation Modal for Demo Data Reset */}
-      <Modal
-        isOpen={showResetModal}
-        onClose={() => setShowResetModal(false)}
-        title="Restablecer datos de demostración"
-        description="Esta acción recargará todos los clientes, vehículos y turnos iniciales."
-        maxWidth="md"
-      >
-        <div className="space-y-4">
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-800 text-xs leading-relaxed">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <span>
-              Se perderán los turnos o clientes creados durante esta sesión y el sistema regresará al estado inicial seed con dos estaciones configuradas y turnos de prueba.
-            </span>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowResetModal(false)}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmReset}
-              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm"
-            >
-              Sí, restablecer datos
-            </button>
-          </div>
-        </div>
-      </Modal>
     </>
   );
 };
