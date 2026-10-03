@@ -1,0 +1,8 @@
+{
+  "name": "Sistema de Turnos Car Wash",
+  "description": "Sistema profesional de administración de turnos y colas para Car Wash con kiosco autoservicio, monitor público y gestión de estaciones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
