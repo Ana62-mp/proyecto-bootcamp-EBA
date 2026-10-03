@@ -1,0 +1,40 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Variables de entorno (NUNCA subir al repo)
+.env
+.env.local
+.env.*.local
+.env.test
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Temporales
+tmp/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Tests
+coverage/
+
+# Cache
+.cache/
+/src/generated/prisma

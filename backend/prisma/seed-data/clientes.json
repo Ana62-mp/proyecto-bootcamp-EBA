@@ -1,0 +1,303 @@
+[
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "1710034065",
+    "nombres": "Roberto Carlos",
+    "apellidos": "Andrade Velasteguí",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0998765432",
+    "correo": "roberto.andrade@gmail.com",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PBH4321",
+        "marca": "Chevrolet",
+        "modelo": "Sail",
+        "color": "Plata",
+        "tipoVehiculo": "AUTOMOVIL",
+        "activo": true
+      },
+      {
+        "placa": "PCX8920",
+        "marca": "Toyota",
+        "modelo": "RAV4",
+        "color": "Gris Grafito",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "0912345674",
+    "nombres": "Valeria Nicole",
+    "apellidos": "Paredes Castro",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0981122334",
+    "correo": "valeria.paredes@hotmail.com",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "GSX5512",
+        "marca": "Hyundai",
+        "modelo": "Tucson",
+        "color": "Blanco",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "PASAPORTE",
+    "numeroDocumento": "A9823412B",
+    "nombres": "Michael James",
+    "apellidos": "Stevenson",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0979887766",
+    "correo": "m.stevenson@expat.org",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PCD7740",
+        "marca": "Ford",
+        "modelo": "F-150",
+        "color": "Negro",
+        "tipoVehiculo": "CAMIONETA",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "RUC",
+    "numeroDocumento": "1710034065001",
+    "nombres": null,
+    "apellidos": null,
+    "razonSocial": "Logística & Envíos Rápidos S.A.S.",
+    "nombreContacto": "Ing. Mateo Salazar",
+    "telefono": "022445566",
+    "correo": "facturacion@logisticaexpress.ec",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PCQ2201",
+        "marca": "Hino",
+        "modelo": "Dutro City",
+        "color": "Blanco",
+        "tipoVehiculo": "OTRO",
+        "activo": true
+      },
+      {
+        "placa": "PBN6019",
+        "marca": "Chevrolet",
+        "modelo": "D-Max",
+        "color": "Rojo",
+        "tipoVehiculo": "CAMIONETA",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "1712345678",
+    "nombres": "Esteban David",
+    "apellidos": "Zambrano Mora",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0995544332",
+    "correo": "esteban.zambrano@outlook.com",
+    "activo": true,
+    "vehiculos": []
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "1708892110",
+    "nombres": "Camila Sofía",
+    "apellidos": "Reyes Narváez",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0987654321",
+    "correo": "camila.reyes@gmail.com",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PDH3041",
+        "marca": "Kia",
+        "modelo": "Sportage R",
+        "color": "Azul Marino",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "0923456789",
+    "nombres": "Gonzalo Andrés",
+    "apellidos": "Viteri Campuzano",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0991122998",
+    "correo": "gviteri@servicios.com.ec",
+    "activo": false,
+    "vehiculos": [
+      {
+        "placa": "GSX9988",
+        "marca": "Mazda",
+        "modelo": "CX-5",
+        "color": "Rojo Cristal",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "PASAPORTE",
+    "numeroDocumento": "PA450198",
+    "nombres": "Elena",
+    "apellidos": "Vasileva",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0983344556",
+    "correo": "elena.vasileva@travel.com",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PCW1850",
+        "marca": "Nissan",
+        "modelo": "Kicks",
+        "color": "Naranja Techo Negro",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "RUC",
+    "numeroDocumento": "1790016919001",
+    "nombres": null,
+    "apellidos": null,
+    "razonSocial": "Distribuidora Automotriz Andina Cía. Ltda.",
+    "nombreContacto": "Lcda. Mónica Guerrero",
+    "telefono": "022987654",
+    "correo": "administracion@distandina.ec",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PCO5110",
+        "marca": "Renault",
+        "modelo": "Duster",
+        "color": "Verde Oliva",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "1721543880",
+    "nombres": "Fernando Javier",
+    "apellidos": "Maldonado Ortiz",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0990099887",
+    "correo": "fernando.maldonado@gmail.com",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PBP8123",
+        "marca": "Volkswagen",
+        "modelo": "Gol",
+        "color": "Blanco",
+        "tipoVehiculo": "AUTOMOVIL",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "1715482905",
+    "nombres": "Diana Elizabeth",
+    "apellidos": "Torres Cárdenas",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0984433221",
+    "correo": "diana.torres@yahoo.es",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PBX9004",
+        "marca": "Suzuki",
+        "modelo": "Jimny",
+        "color": "Amarillo Cinético",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "CEDULA",
+    "numeroDocumento": "0918765432",
+    "nombres": "Julio César",
+    "apellidos": "Benalcázar Pino",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0993322110",
+    "correo": "jc.benalcazar@proyectos.ec",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "GTB3490",
+        "marca": "Chevrolet",
+        "modelo": "Aveo Family",
+        "color": "Azul Eléctrico",
+        "tipoVehiculo": "AUTOMOVIL",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "PASAPORTE",
+    "numeroDocumento": "FR887711X",
+    "nombres": "Pierre",
+    "apellidos": "Dubois",
+    "razonSocial": null,
+    "nombreContacto": null,
+    "telefono": "0971239874",
+    "correo": "pierre.dubois@alliance.fr",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "PBZ4560",
+        "marca": "Peugeot",
+        "modelo": "3008",
+        "color": "Gris Artense",
+        "tipoVehiculo": "SUV",
+        "activo": true
+      }
+    ]
+  },
+  {
+    "tipoDocumento": "RUC",
+    "numeroDocumento": "0992345678001",
+    "nombres": null,
+    "apellidos": null,
+    "razonSocial": "Constructora del Pacífico Conspaci Cía. Ltda.",
+    "nombreContacto": "Arq. Paulina Soria",
+    "telefono": "042887766",
+    "correo": "compras@conspaci.com.ec",
+    "activo": true,
+    "vehiculos": [
+      {
+        "placa": "GCA7700",
+        "marca": "Toyota",
+        "modelo": "Hilux 4x4",
+        "color": "Plata Metálico",
+        "tipoVehiculo": "CAMIONETA",
+        "activo": true
+      }
+    ]
+  }
+]

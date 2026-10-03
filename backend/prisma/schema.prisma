@@ -1,0 +1,245 @@
+// Esquema Car Wash — Prisma 7 con driver adapter (@prisma/adapter-pg).
+// La URL de conexión vive solo en el entorno (ver prisma.config.ts).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  MAQUINA
+  LAVADOR
+}
+
+enum TipoDocumento {
+  CEDULA
+  PASAPORTE
+  RUC
+}
+
+enum TipoVehiculo {
+  AUTOMOVIL
+  SUV
+  CAMIONETA
+  OTRO
+}
+
+enum TipoLavado {
+  LAVADO_SIMPLE
+  LAVADO_COMPLETO
+  LAVADO_TAPICERIA
+  PARAFINADO
+}
+
+enum EstadoTurno {
+  EN_ESPERA
+  LAVANDO
+  SECANDO_PULIENDO
+  LISTO
+  ENTREGADO
+  CANCELADO
+}
+
+enum VehicleDataSource {
+  MANUAL
+  WEBSERVICES_EC
+}
+
+model Usuario {
+  id                String   @id @default(uuid()) @db.Uuid
+  usuario           String   @unique
+  nombreVisible     String   @map("nombre_visible")
+  rol               Rol
+  activo            Boolean  @default(true)
+  codigo            String?
+  ubicacion         String?
+  estacionPreferida Int?     @map("estacion_preferida")
+  passwordHash      String   @map("password_hash")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  ticketsEmitidos  Ticket[]                @relation("TicketEmisor")
+  ticketsMaquina   Ticket[]                @relation("TicketMaquina")
+  ticketsLavador   Ticket[]                @relation("TicketLavador")
+  historialEstados TicketHistorialEstado[]
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id              String        @id @default(uuid()) @db.Uuid
+  tipoDocumento   TipoDocumento @map("tipo_documento")
+  numeroDocumento String        @map("numero_documento")
+  nombres         String?
+  apellidos       String?
+  razonSocial     String?       @map("razon_social")
+  nombreContacto  String?       @map("nombre_contacto")
+  telefono        String
+  correo          String?
+  activo          Boolean       @default(true)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  vehiculos Vehiculo[]
+  tickets   Ticket[]
+
+  @@unique([tipoDocumento, numeroDocumento])
+  @@map("clientes")
+}
+
+model Vehiculo {
+  id           String       @id @default(uuid()) @db.Uuid
+  clienteId    String       @map("cliente_id") @db.Uuid
+  // Placa canónica: mayúsculas y sin guión (PBH1234, IA7000).
+  placa        String       @unique
+  tipoVehiculo TipoVehiculo @map("tipo_vehiculo")
+  marca        String
+  modelo       String
+  color        String
+  activo       Boolean      @default(true)
+
+  // Datos vehiculares de la consulta por placa (§13.5); null si no se conocen.
+  providerVehicleId      Int?              @map("provider_vehicle_id")
+  vehicleClass           String?           @map("vehicle_class")
+  year                   Int?
+  country                String?
+  serviceType            String?           @map("service_type")
+  registrationDate       DateTime?         @map("registration_date") @db.Date
+  registrationExpiryDate DateTime?         @map("registration_expiry_date") @db.Date
+  providerAutoYear       Int?              @map("provider_auto_year")
+  chassis                String?
+  engineNumber           String?           @map("engine_number")
+  dataSource             VehicleDataSource @default(MANUAL) @map("data_source")
+  providerQueriedAt      DateTime?         @map("provider_queried_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente  @relation(fields: [clienteId], references: [id])
+  tickets Ticket[]
+
+  @@index([clienteId])
+  @@map("vehiculos")
+}
+
+// Resultado de la última consulta al proveedor por placa. Permite registrar
+// la procedencia WEBSERVICES_EC al confirmar el vehículo sin confiar en datos
+// enviados por el frontend. No es un vehículo registrado.
+model VehicleLookupSnapshot {
+  placa                  String    @id
+  providerVehicleId      Int?      @map("provider_vehicle_id")
+  vehicleClass           String?   @map("vehicle_class")
+  brand                  String?
+  model                  String?
+  year                   Int?
+  country                String?
+  color                  String?
+  serviceType            String?   @map("service_type")
+  registrationDate       DateTime? @map("registration_date") @db.Date
+  registrationExpiryDate DateTime? @map("registration_expiry_date") @db.Date
+  providerAutoYear       Int?      @map("provider_auto_year")
+  chassis                String?
+  engineNumber           String?   @map("engine_number")
+  queriedAt              DateTime  @map("queried_at")
+
+  @@map("vehicle_lookup_snapshots")
+}
+
+model ServicioLavado {
+  id          String     @id @default(uuid()) @db.Uuid
+  codigo      TipoLavado
+  nombre      String
+  descripcion String
+  precio      Decimal    @db.Decimal(10, 2)
+  moneda      String     @default("USD") @db.Char(3)
+  activo      Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  tickets Ticket[]
+
+  @@map("servicios_lavado")
+}
+
+// Ticket de lavado = turno emitido. Guarda copia de los datos del comprobante.
+model Ticket {
+  id          String   @id @default(uuid()) @db.Uuid
+  numeroTurno String   @unique @map("numero_turno")
+  // Día de operación en America/Guayaquil al que pertenece el contador.
+  fechaTurno  DateTime @map("fecha_turno") @db.Date
+  secuencia   Int
+  emitidoEn   DateTime @default(now()) @map("emitido_en")
+
+  clienteId    String @map("cliente_id") @db.Uuid
+  vehiculoId   String @map("vehiculo_id") @db.Uuid
+  servicioId   String @map("servicio_id") @db.Uuid
+  emitidoPorId String @map("emitido_por_id") @db.Uuid
+  machineId    String @map("machine_id") @db.Uuid
+
+  // Idempotencia por actor (§11.3).
+  idempotencyKey     String @map("idempotency_key") @db.Uuid
+  requestFingerprint String @map("request_fingerprint")
+
+  // Copia del comprobante.
+  precio                 Decimal       @db.Decimal(10, 2)
+  moneda                 String        @db.Char(3)
+  servicioNombre         String        @map("servicio_nombre")
+  clienteNombre          String        @map("cliente_nombre")
+  clienteTipoDocumento   TipoDocumento @map("cliente_tipo_documento")
+  clienteNumeroDocumento String        @map("cliente_numero_documento")
+  vehiculoPlaca          String        @map("vehiculo_placa")
+  vehiculoMarca          String        @map("vehiculo_marca")
+  vehiculoModelo         String        @map("vehiculo_modelo")
+  vehiculoColor          String        @map("vehiculo_color")
+  vehiculoTipo           TipoVehiculo  @map("vehiculo_tipo")
+
+  // Operación del turno (REST, sin eventos en tiempo real).
+  estadoTurno       EstadoTurno @default(EN_ESPERA) @map("estado_turno")
+  numeroEstacion    Int?        @map("numero_estacion")
+  lavadorId         String?     @map("lavador_id") @db.Uuid
+  fechaInicioLavado DateTime?   @map("fecha_inicio_lavado")
+  fechaFinalizacion DateTime?   @map("fecha_finalizacion")
+  fechaEntrega      DateTime?   @map("fecha_entrega")
+
+  cliente   Cliente                 @relation(fields: [clienteId], references: [id])
+  vehiculo  Vehiculo                @relation(fields: [vehiculoId], references: [id])
+  servicio  ServicioLavado          @relation(fields: [servicioId], references: [id])
+  emisor    Usuario                 @relation("TicketEmisor", fields: [emitidoPorId], references: [id])
+  maquina   Usuario                 @relation("TicketMaquina", fields: [machineId], references: [id])
+  lavador   Usuario?                @relation("TicketLavador", fields: [lavadorId], references: [id])
+  historial TicketHistorialEstado[]
+
+  @@unique([emitidoPorId, idempotencyKey])
+  @@unique([fechaTurno, secuencia])
+  @@index([estadoTurno, emitidoEn])
+  @@index([vehiculoId, estadoTurno])
+  @@map("tickets")
+}
+
+model TicketHistorialEstado {
+  id        String      @id @default(uuid()) @db.Uuid
+  ticketId  String      @map("ticket_id") @db.Uuid
+  estado    EstadoTurno
+  fecha     DateTime    @default(now())
+  usuarioId String?     @map("usuario_id") @db.Uuid
+
+  ticket  Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_historial_estados")
+}
+
+// Contador atómico de turnos por día de operación (America/Guayaquil).
+model TurnoCounter {
+  fecha  DateTime @id @db.Date
+  ultimo Int
+
+  @@map("turno_counters")
+}
