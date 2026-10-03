@@ -6,7 +6,8 @@ import React, { useState } from 'react';
 import { TipoVehiculo, Vehiculo } from '../../types';
 import { normalizarYValidarPlaca, formatearPlacaEnTiempoReal } from '../../utils/documentValidators';
 import { useCarWash } from '../../context/CarWashContext';
-import { Car, ArrowRight, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { AntService } from '../../services/antService';
+import { Car, ArrowRight, ArrowLeft, AlertTriangle, ShieldCheck, Loader2, CheckCircle2, Info } from 'lucide-react';
 
 interface VehicleFormProps {
   idCliente: number;
@@ -27,12 +28,43 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
   const [color, setColor] = useState('');
   const [tipoVehiculo, setTipoVehiculo] = useState<TipoVehiculo>('AUTOMOVIL');
   const [error, setError] = useState('');
+  const [validandoAnt, setValidandoAnt] = useState(false);
+  const [resultadoAnt, setResultadoAnt] = useState<'ENCONTRADO' | 'NO_ENCONTRADO' | null>(null);
 
   const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
+    setResultadoAnt(null);
     // Auto-inserts '-' after 3 letters and strictly limits to letters + hyphen + up to 4 digits
     const formatted = formatearPlacaEnTiempoReal(e.target.value);
     setPlaca(formatted);
+  };
+
+  const handleValidarPlaca = async () => {
+    setError('');
+    setResultadoAnt(null);
+
+    const validation = normalizarYValidarPlaca(placa);
+    if (!validation.isValid) {
+      setError(validation.errorMessage || 'Placa inválida.');
+      return;
+    }
+
+    setValidandoAnt(true);
+    try {
+      const datos = await AntService.consultarPorPlaca(validation.cleanedValue);
+      if (datos) {
+        setMarca(datos.marca);
+        setModelo(datos.modelo);
+        setColor(datos.color);
+        setResultadoAnt('ENCONTRADO');
+      } else {
+        setResultadoAnt('NO_ENCONTRADO');
+      }
+    } catch {
+      setError('No se pudo consultar la ANT en este momento. Llena los datos manualmente.');
+    } finally {
+      setValidandoAnt(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -116,7 +148,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
           <label htmlFor="placa" className="block text-xs font-bold text-slate-700 uppercase mb-1">
             Placa del vehículo *
           </label>
-          <div className="relative">
+          <div className="flex gap-2">
             <input
               id="placa"
               type="text"
@@ -124,12 +156,35 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({
               value={placa}
               onChange={handlePlacaChange}
               placeholder="Ejemplo: ABC-1234"
-              className="w-full px-4 py-3 rounded-xl border border-slate-300 font-mono text-xl tracking-widest font-black uppercase text-[#042544] bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3BBCFD]"
+              className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-slate-300 font-mono text-xl tracking-widest font-black uppercase text-[#042544] bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3BBCFD]"
             />
+            <button
+              type="button"
+              onClick={handleValidarPlaca}
+              disabled={validandoAnt || !placa}
+              className="shrink-0 px-4 rounded-xl bg-[#3BBCFD] hover:bg-[#22a8ec] disabled:opacity-50 disabled:cursor-not-allowed text-[#042544] font-bold text-sm flex items-center gap-1.5 transition-colors"
+            >
+              {validandoAnt
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <ShieldCheck className="w-4 h-4" />}
+              <span>{validandoAnt ? 'Validando...' : 'Validar'}</span>
+            </button>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             Formato ecuatoriano estándar: 3 letras y 3 o 4 dígitos (Ej: PBH-4321).
           </p>
+          {resultadoAnt === 'ENCONTRADO' && (
+            <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-medium text-emerald-700 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>Vehículo identificado en la ANT. Verifica que los datos sean correctos.</span>
+            </div>
+          )}
+          {resultadoAnt === 'NO_ENCONTRADO' && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-medium text-amber-800 flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>No encontramos tu placa en la ANT. Tu vehículo puede ser extranjero o nuevo; por favor llena los datos manualmente.</span>
+            </div>
+          )}
         </div>
 
         {/* Tipo de Vehículo Selector */}
